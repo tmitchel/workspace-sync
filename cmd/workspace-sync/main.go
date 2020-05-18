@@ -36,7 +36,7 @@ func runLocal(addr string) error {
 	l, err := wssync.NewLocal(wssync.Config{
 		IceURL:      "stun:stun.l.google.com:19302",
 		ChannelName: "sync-test",
-		WatchDir:    []string{"./"},
+		WatchDir:    []string{"./", "./folder"},
 		Addr:        addr,
 	})
 	if err != nil {

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/pion/webrtc/v2"
 	"github.com/sirupsen/logrus"
@@ -54,13 +56,15 @@ func NewRemote(cfg Config) (*Remote, error) {
 		// Register text message handling
 		d.OnMessage(func(msg webrtc.DataChannelMessage) {
 			logrus.Infof("%+v", msg)
-			payload := struct {
-				Name string
-				File []byte
-			}{}
+			var payload Event
 			err := json.Unmarshal(msg.Data, &payload)
 			if err != nil {
 				logrus.Fatal(err)
+			}
+
+			dir, _ := filepath.Split(payload.Name)
+			if dir != "" {
+				os.MkdirAll(dir, 0644)
 			}
 
 			err = ioutil.WriteFile(payload.Name, payload.File, 0644)
