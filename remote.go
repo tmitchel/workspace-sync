@@ -10,17 +10,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Remote represents the remote copy of the code. This end will
+// receive Events and use them to update the remote copy of the
+// code.
 type Remote struct {
 	conn *webrtc.PeerConnection
 }
 
-func NewRemote(addr string) (*Remote, error) {
+// NewRemote starts handles the RTCPeerConnection and registers
+// for receiving events.
+func NewRemote(cfg Config) (*Remote, error) {
 	r := &Remote{}
 	// Prepare the configuration
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
-				URLs: []string{"stun:stun.l.google.com:19302"},
+				URLs: []string{cfg.IceURL},
 			},
 		},
 	}
@@ -37,11 +42,13 @@ func NewRemote(addr string) (*Remote, error) {
 
 	// Register data channel creation handling
 	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
-		fmt.Printf("New DataChannel %s %d\n", d.Label(), d.ID())
+		if d.Label() != cfg.ChannelName {
+			return
+		}
 
 		// Register channel opening handling
 		d.OnOpen(func() {
-			fmt.Printf("Data channel '%s'-'%d' open. Random messages will now be sent to any connected DataChannels every 5 seconds\n", d.Label(), d.ID())
+			fmt.Printf("Data channel '%s'-'%d' open.\n", d.Label(), d.ID())
 		})
 
 		// Register text message handling
@@ -64,7 +71,7 @@ func NewRemote(addr string) (*Remote, error) {
 	})
 
 	// Exchange the offer/answer via HTTP
-	offerChan, answerChan := r.mustSignalViaHTTPRemote(addr)
+	offerChan, answerChan := r.mustSignalViaHTTP(cfg.Addr)
 
 	// Wait for the remote SessionDescription
 	offer := <-offerChan
@@ -92,7 +99,8 @@ func NewRemote(addr string) (*Remote, error) {
 	return r, nil
 }
 
-func (r *Remote) mustSignalViaHTTPRemote(address string) (chan webrtc.SessionDescription, chan webrtc.SessionDescription) {
+// mustSignalViaHTTP handles an incoming offer and returns the answer.
+func (r *Remote) mustSignalViaHTTP(address string) (chan webrtc.SessionDescription, chan webrtc.SessionDescription) {
 	offerOut := make(chan webrtc.SessionDescription)
 	answerIn := make(chan webrtc.SessionDescription)
 

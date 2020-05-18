@@ -19,7 +19,11 @@ func main() {
 }
 
 func runRemote(addr string) error {
-	_, err := wssync.NewRemote(addr)
+	_, err := wssync.NewRemote(wssync.Config{
+		IceURL:      "stun:stun.l.google.com:19302",
+		ChannelName: "sync-test",
+		Addr:        addr,
+	})
 	if err != nil {
 		return err
 	}
@@ -29,10 +33,16 @@ func runRemote(addr string) error {
 }
 
 func runLocal(addr string) error {
-	l, err := wssync.NewLocal(addr)
+	l, err := wssync.NewLocal(wssync.Config{
+		IceURL:      "stun:stun.l.google.com:19302",
+		ChannelName: "sync-test",
+		WatchDir:    []string{"./"},
+		Addr:        addr,
+	})
 	if err != nil {
 		return err
 	}
+	defer l.Close()
 	go l.Watch()
 
 	// Block forever

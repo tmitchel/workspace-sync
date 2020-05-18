@@ -11,18 +11,29 @@ import (
 	"gopkg.in/fsnotify.v1"
 )
 
+// Local represents the local copy of the code. This is the copy that will
+// be edited and sent to the Remote.
 type Local struct {
 	watcher *fsnotify.Watcher
 	channel *webrtc.DataChannel
 }
 
-func NewLocal(addr string) (*Local, error) {
+// Close closes the fsnotify.Watcher.
+func (l *Local) Close() error {
+	return l.watcher.Close()
+}
+
+// NewLocal creates a DataChannel and a new Local watcher then begins
+// listening for someone to connect to the channel. On file change events,
+// that file will be copied to all clients on the DataChannel.
+func NewLocal(cfg Config) (*Local, error) {
 	l := &Local{}
+
 	// Prepare the configuration
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
-				URLs: []string{"stun:stun.l.google.com:19302"},
+				URLs: []string{cfg.IceURL},
 			},
 		},
 	}
@@ -33,17 +44,20 @@ func NewLocal(addr string) (*Local, error) {
 		return nil, err
 	}
 
-	dataChannel, err := peerConnection.CreateDataChannel("sync", nil)
+	// create the data channel
+	dataChannel, err := peerConnection.CreateDataChannel(cfg.ChannelName, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	// message on ICE state change
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		logrus.Infof("ICE Connection State has changed: %s\n", connectionState.String())
 	})
 
+	// send initial message when channel is opened
 	dataChannel.OnOpen(func() {
-		logrus.Infof("Data channel '%s'-'%d' open. Random messages will now be sent to any connected DataChannels every 5 seconds\n", dataChannel.Label(), dataChannel.ID())
+		logrus.Infof("Data channel '%s'-'%d' open.\n", dataChannel.Label(), dataChannel.ID())
 		payload := struct {
 			Name string
 			File []byte
@@ -53,10 +67,6 @@ func NewLocal(addr string) (*Local, error) {
 			logrus.Fatal(err)
 		}
 		dataChannel.Send(pl)
-	})
-
-	dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-		logrus.Infof("Message from DataChannel '%s': '%s'\n", dataChannel.Label(), string(msg.Data))
 	})
 
 	// Create an offer to send to the browser
@@ -72,31 +82,35 @@ func NewLocal(addr string) (*Local, error) {
 	}
 
 	// Exchange the offer for the answer
-	answer := l.mustSignalViaHTTPLocal(offer, addr)
+	answer := l.mustSignalViaHTTP(offer, cfg.Addr)
 
 	// Apply the answer as the remote description
 	err = peerConnection.SetRemoteDescription(answer)
 	if err != nil {
 		return nil, err
 	}
-
 	l.channel = dataChannel
 
+	// create the file system watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		logrus.Fatal(err)
 	}
 
-	err = watcher.Add("./")
-	if err != nil {
-		return nil, err
+	// add all directories to the watcher
+	for _, d := range cfg.WatchDir {
+		err = watcher.Add(d)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	l.watcher = watcher
 
 	return l, nil
 }
 
+// Watch start the fsnotify.Watcher in an infinite loop watching for
+// file events. When it sees one, it send an Event on the DataChannel.
 func (l *Local) Watch() {
 	for {
 		select {
@@ -104,7 +118,6 @@ func (l *Local) Watch() {
 			if !ok {
 				return
 			}
-			logrus.Println("event:", event)
 			if event.Op&fsnotify.Write == fsnotify.Write {
 				logrus.Println("modified file:", event.Name)
 				file, err := ioutil.ReadFile(event.Name)
@@ -134,7 +147,8 @@ func (l *Local) Watch() {
 	}
 }
 
-func (l *Local) mustSignalViaHTTPLocal(offer webrtc.SessionDescription, address string) webrtc.SessionDescription {
+// mustSignalViaHTTP handles sending the SDP to the Remote. Any error is fatal.
+func (l *Local) mustSignalViaHTTP(offer webrtc.SessionDescription, address string) webrtc.SessionDescription {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(offer)
 	if err != nil {
