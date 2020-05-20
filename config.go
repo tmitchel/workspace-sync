@@ -9,9 +9,11 @@ type Config struct {
 	// Local and Remote.
 	ChannelName string
 
-	// Directories to watch. fsnotify is not recursive, so pass
-	// all directories that need watching.
-	WatchDir []string
+	// Directory to watch
+	WatchDir string
+
+	// Patterns to ignore
+	Ignore []string
 
 	// Address for HTTP exchange of SDP
 	Addr string
@@ -23,7 +25,8 @@ func DefaultConfig() Config {
 	return Config{
 		IceURL:      "stun:stun.l.google.com:19302",
 		ChannelName: "sync",
-		WatchDir:    []string{"./"},
+		WatchDir:    "./",
 		Addr:        ":50000",
+		Ignore:      []string{".git"},
 	}
 }

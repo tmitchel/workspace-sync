@@ -1,49 +1,39 @@
 package main
 
 import (
-	"flag"
-
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	wssync "github.com/tmitchel/workspace-sync"
 )
 
 func main() {
-	local := flag.Bool("local", false, "Run local pion instance")
-	addr := flag.String("address", ":50000", "Address to host the HTTP server on.")
-
-	flag.Parse()
-	if *local {
-		logrus.Fatal(runLocal(*addr))
-	}
-	logrus.Fatal(runRemote(*addr))
-}
-
-func runRemote(addr string) error {
-	_, err := wssync.NewRemote(wssync.Config{
-		IceURL:      "stun:stun.l.google.com:19302",
-		ChannelName: "sync-test",
-		Addr:        addr,
-	})
-	if err != nil {
-		return err
+	viper.SetConfigName("config")
+	viper.SetConfigType("json")
+	viper.AddConfigPath("./")
+	if err := viper.ReadInConfig(); err != nil {
+		logrus.Fatal("Fatal error config file: %s \n", err)
 	}
 
-	// Block forever
-	select {}
-}
-
-func runLocal(addr string) error {
-	l, err := wssync.NewLocal(wssync.Config{
-		IceURL:      "stun:stun.l.google.com:19302",
-		ChannelName: "sync-test",
-		WatchDir:    []string{"./", "./folder"},
-		Addr:        addr,
-	})
-	if err != nil {
-		return err
+	config := wssync.Config{
+		IceURL:      viper.GetString("iceURL"),
+		ChannelName: viper.GetString("channel"),
+		Addr:        viper.GetString("port"),
+		Ignore:      viper.GetStringSlice("ignore"),
 	}
-	defer l.Close()
-	go l.Watch()
+
+	if viper.GetBool("local") {
+		config.WatchDir = viper.GetString("directories")
+		l, err := wssync.NewLocal(config)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		go l.Watch()
+	} else {
+		_, err := wssync.NewRemote(config)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+	}
 
 	// Block forever
 	select {}

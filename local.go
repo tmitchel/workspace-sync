@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/pion/webrtc/v2"
 	"github.com/sirupsen/logrus"
@@ -98,11 +101,22 @@ func NewLocal(cfg Config) (*Local, error) {
 	}
 
 	// add all directories to the watcher
-	for _, d := range cfg.WatchDir {
-		err = watcher.Add(d)
-		if err != nil {
-			return nil, err
+	err = filepath.Walk(cfg.WatchDir, func(path string, file os.FileInfo, err error) error {
+		for _, f := range cfg.Ignore {
+			if strings.Contains(path, f) {
+				return nil
+			}
 		}
+
+		logrus.Infof("Adding directory: %v to the watch", path)
+		err = watcher.Add(path)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	l.watcher = watcher
 
@@ -115,6 +129,7 @@ func (l *Local) Watch() {
 	for {
 		select {
 		case event, ok := <-l.watcher.Events:
+			logrus.Infof("EVENT")
 			if !ok {
 				return
 			}
