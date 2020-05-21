@@ -129,7 +129,6 @@ func (l *Local) Watch() {
 	for {
 		select {
 		case event, ok := <-l.watcher.Events:
-			logrus.Infof("EVENT")
 			if !ok {
 				return
 			}

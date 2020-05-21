@@ -55,7 +55,6 @@ func NewRemote(cfg Config) (*Remote, error) {
 
 		// Register text message handling
 		d.OnMessage(func(msg webrtc.DataChannelMessage) {
-			logrus.Infof("%+v", msg)
 			var payload Event
 			err := json.Unmarshal(msg.Data, &payload)
 			if err != nil {
