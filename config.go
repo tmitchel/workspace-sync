@@ -11,7 +11,7 @@ type Config struct {
 	// Patterns to ignore
 	Ignore []string
 
-	// Address for HTTP exchange of SDP
+	// Address for HTTP exchange of SDP (using localhost:Addr at the moment)
 	Addr string
 }
 

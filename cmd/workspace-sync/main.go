@@ -19,6 +19,7 @@ func main() {
 		logrus.Fatal("Fatal error config file: %s \n", err)
 	}
 
+	// build config from config.json
 	config := wssync.Config{
 		IceURL: viper.GetString("iceURL"),
 		Addr:   viper.GetString("port"),

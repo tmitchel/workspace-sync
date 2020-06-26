@@ -11,16 +11,38 @@ Download the appropriate binary to your local machine and the remote. If one is 
 GOOS=<os> GOARCH=<architecture> go build -o sync cmd/workspace-sync/main.go
 ```
 
-The `config.json` file is used to configure the sync. Here is an example for the local end:
+## Usage - Remote
+
+The remote end must be started first because it runs an HTTP server for the local end to send requests. The remote end is configured using the `config.json` file which must be located at the root of the directory where you want updates to be sent. An example json config is shown below:
+
 ```json
 {
-    "local": true,
+    "port": ":50000",
+    "iceURL": "stun:stun.l.google.com:19302"
+}
+```
+
+Start the remote end first:
+```
+./linux-workspace-sync --endpoint remote  // if remote end is linux
+```
+
+NOTE: the connection is established via HTTP over localhost. If remote is a server which you SSH into, make sure to forward the port from `config.json`.
+
+## Usage - Local
+
+The local end is configured using a similar `config.json` containing a few extra fields. An example is shown below:
+```json
+{
     "directories": "./",
     "ignore": [".git"],
     "port": ":50000",
     "iceURL": "stun:stun.l.google.com:19302",
-    "channel": "sync-test"
 }
 ```
 
-This will tell the sync that this is the local end and to watch the current directory (and all subdirectories) ignoring any file with `.git` in the name. `localhost:50000` will be used as the HTTP server for setting up the Data Channel named `sync-test`. Google's STUN server will be used.
+This this config will recursively watch the current directory and all subdirectories, excluding any paths containing `.git`. Start the local end with:
+```
+./macos-workspace-sync --endpoint local  // if local end is mac
+```
+

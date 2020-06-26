@@ -63,39 +63,47 @@ func NewRemote(cfg Config) (*Remote, error) {
 
 			switch payload.Op {
 			case "CREATE":
+				// create directory if it doesn't exist
 				dir, _ := filepath.Split(payload.Name)
 				if dir != "" {
 					os.MkdirAll(dir, 0644)
 				}
 
+				// write the file contents
 				ioutil.WriteFile(payload.Name, []byte(""), 0644)
 				if err != nil {
 					logrus.Fatal(err)
 				}
 			case "WRITE":
+				// create directory if it doesn't exist
 				dir, _ := filepath.Split(payload.Name)
 				if dir != "" {
 					os.MkdirAll(dir, 0644)
 				}
+
+				// write the file contents
 				err = ioutil.WriteFile(payload.Name, payload.File, 0644)
 				if err != nil {
 					logrus.Fatal(err)
 				}
 			case "REMOVE":
+				// check if file exists
 				if f, err := os.Stat(payload.Name); os.IsNotExist(err) || f.IsDir() {
 					logrus.Errorf("Error finding file to delete %s : %w", payload.Name, err)
 					return
 				}
 
+				// delete it
 				os.Remove(payload.Name)
 			case "RENAME":
+				// check if file exists
 				if f, err := os.Stat(payload.Name); os.IsNotExist(err) || f.IsDir() {
 					logrus.Errorf("Error finding file to delete %s : %w", payload.Name, err)
 					return
 				}
 
+				// delete it
 				os.Remove(payload.Name)
-
 			}
 		})
 	})
