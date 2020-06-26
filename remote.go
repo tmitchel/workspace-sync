@@ -44,7 +44,7 @@ func NewRemote(cfg Config) (*Remote, error) {
 
 	// Register data channel creation handling
 	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
-		if d.Label() != cfg.ChannelName {
+		if d.Label() != "Workspace-Sync" {
 			return
 		}
 
@@ -61,14 +61,33 @@ func NewRemote(cfg Config) (*Remote, error) {
 				logrus.Fatal(err)
 			}
 
-			dir, _ := filepath.Split(payload.Name)
-			if dir != "" {
-				os.MkdirAll(dir, 0644)
-			}
+			switch payload.Op {
+			case "CREATE":
+				dir, _ := filepath.Split(payload.Name)
+				if dir != "" {
+					os.MkdirAll(dir, 0644)
+				}
 
-			err = ioutil.WriteFile(payload.Name, payload.File, 0644)
-			if err != nil {
-				logrus.Fatal(err)
+				ioutil.WriteFile(payload.Name, []byte(""), 0644)
+				if err != nil {
+					logrus.Fatal(err)
+				}
+			case "WRITE":
+				dir, _ := filepath.Split(payload.Name)
+				if dir != "" {
+					os.MkdirAll(dir, 0644)
+				}
+				err = ioutil.WriteFile(payload.Name, payload.File, 0644)
+				if err != nil {
+					logrus.Fatal(err)
+				}
+			case "REMOVE":
+				if f, err := os.Stat(payload.Name); os.IsNotExist(err) || f.IsDir() {
+					logrus.Error("Error finding file to delete %s : %w", payload.Name, err)
+					return
+				}
+
+				os.Remove(payload.Name)
 			}
 		})
 	})
