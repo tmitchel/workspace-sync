@@ -18,8 +18,9 @@ import (
 // Local represents the local copy of the code. This is the copy that will
 // be edited and sent to the Remote.
 type Local struct {
-	watcher *fsnotify.Watcher
-	channel *webrtc.DataChannel
+	watcher          *fsnotify.Watcher
+	lastOp, lastName string
+	channel          *webrtc.DataChannel
 }
 
 // Close closes the fsnotify.Watcher.
@@ -162,6 +163,27 @@ func (l *Local) handleEvent(event fsnotify.Event) error {
 		}
 
 		evt.File = file
+	} else if event.Op&fsnotify.Rename == fsnotify.Rename {
+		if l.lastOp == "CREATE" {
+			file, err := ioutil.ReadFile(l.lastName)
+			if err != nil {
+				return fmt.Errorf("Error reading file %s : %w", event.Name, err)
+			}
+
+			// write the old file as the new file
+			pl, err := json.Marshal(Event{
+				Name: l.lastName,
+				Op:   "WRITE",
+				File: file,
+			})
+			if err != nil {
+				return fmt.Errorf("Unable to marshal event : %w", err)
+			}
+
+			if err := l.channel.Send(pl); err != nil {
+				return fmt.Errorf("Unable to send payload : %w", err)
+			}
+		}
 	}
 
 	pl, err := json.Marshal(evt)
@@ -173,6 +195,8 @@ func (l *Local) handleEvent(event fsnotify.Event) error {
 		return fmt.Errorf("Unable to send payload : %w", err)
 	}
 
+	l.lastOp = event.Op.String()
+	l.lastName = event.Name
 	return nil
 }
 

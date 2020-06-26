@@ -60,6 +60,7 @@ func NewRemote(cfg Config) (*Remote, error) {
 			if err != nil {
 				logrus.Fatal(err)
 			}
+			logrus.Info(payload)
 
 			switch payload.Op {
 			case "CREATE":
@@ -83,11 +84,19 @@ func NewRemote(cfg Config) (*Remote, error) {
 				}
 			case "REMOVE":
 				if f, err := os.Stat(payload.Name); os.IsNotExist(err) || f.IsDir() {
-					logrus.Error("Error finding file to delete %s : %w", payload.Name, err)
+					logrus.Errorf("Error finding file to delete %s : %w", payload.Name, err)
 					return
 				}
 
 				os.Remove(payload.Name)
+			case "RENAME":
+				if f, err := os.Stat(payload.Name); os.IsNotExist(err) || f.IsDir() {
+					logrus.Errorf("Error finding file to delete %s : %w", payload.Name, err)
+					return
+				}
+
+				os.Remove(payload.Name)
+
 			}
 		})
 	})
