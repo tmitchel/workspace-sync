@@ -3,6 +3,7 @@ package wssync
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -48,7 +49,7 @@ func NewLocal(cfg Config) (*Local, error) {
 	}
 
 	// create the data channel
-	dataChannel, err := peerConnection.CreateDataChannel(cfg.ChannelName, nil)
+	dataChannel, err := peerConnection.CreateDataChannel("Workspace-Sync", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -130,35 +131,49 @@ func (l *Local) Watch() {
 		select {
 		case event, ok := <-l.watcher.Events:
 			if !ok {
+				logrus.Error("Event not ok")
 				return
 			}
-			if event.Op&fsnotify.Write == fsnotify.Write {
-				logrus.Println("modified file:", event.Name)
-				file, err := ioutil.ReadFile(event.Name)
-				if err != nil {
-					logrus.Fatal(err)
-				}
 
-				pl, err := json.Marshal(Event{
-					Name: event.Name,
-					Op:   event.Op.String(),
-					File: file,
-				})
-				if err != nil {
-					logrus.Fatal(err)
-				}
-
-				if err := l.channel.Send(pl); err != nil {
-					logrus.Fatal(err)
-				}
+			if err := l.handleEvent(event); err != nil {
+				logrus.Error(err)
 			}
 		case err, ok := <-l.watcher.Errors:
 			if !ok {
+				logrus.Error("Event not ok")
 				return
 			}
 			logrus.Println("error:", err)
 		}
 	}
+}
+
+func (l *Local) handleEvent(event fsnotify.Event) error {
+	evt := Event{
+		Name: event.Name,
+		Op:   event.Op.String(),
+	}
+
+	if event.Op&fsnotify.Write == fsnotify.Write {
+		logrus.Println("modified file:", event.Name)
+		file, err := ioutil.ReadFile(event.Name)
+		if err != nil {
+			return fmt.Errorf("Error reading file %s : %w", event.Name, err)
+		}
+
+		evt.File = file
+	}
+
+	pl, err := json.Marshal(evt)
+	if err != nil {
+		return fmt.Errorf("Unable to marshal event : %w", err)
+	}
+
+	if err := l.channel.Send(pl); err != nil {
+		return fmt.Errorf("Unable to send payload : %w", err)
+	}
+
+	return nil
 }
 
 // mustSignalViaHTTP handles sending the SDP to the Remote. Any error is fatal.
