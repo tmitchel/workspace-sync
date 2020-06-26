@@ -2,7 +2,6 @@ package wssync
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -39,7 +38,7 @@ func NewRemote(cfg Config) (*Remote, error) {
 	}
 
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("ICE Connection State has changed: %s\n", connectionState.String())
+		logrus.Infof("ICE Connection State has changed: %s\n", connectionState.String())
 	})
 
 	// Register data channel creation handling
@@ -50,7 +49,7 @@ func NewRemote(cfg Config) (*Remote, error) {
 
 		// Register channel opening handling
 		d.OnOpen(func() {
-			fmt.Printf("Data channel '%s'-'%d' open.\n", d.Label(), d.ID())
+			logrus.Infof("Data channel '%s'-'%d' open.\n", d.Label(), d.ID())
 		})
 
 		// Register text message handling
@@ -60,7 +59,7 @@ func NewRemote(cfg Config) (*Remote, error) {
 			if err != nil {
 				logrus.Fatal(err)
 			}
-			logrus.Info(payload)
+			logrus.Infof("Recieved: %s event on file: %s", payload.Op, payload.Name)
 
 			switch payload.Op {
 			case "CREATE":
