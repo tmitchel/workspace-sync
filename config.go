@@ -5,10 +5,6 @@ type Config struct {
 	// URL for the STUN and TURN server.
 	IceURL string
 
-	// Name for the DataChannel that is created. Must match for
-	// Local and Remote.
-	ChannelName string
-
 	// Directory to watch
 	WatchDir string
 
@@ -23,10 +19,9 @@ type Config struct {
 // directory.
 func DefaultConfig() Config {
 	return Config{
-		IceURL:      "stun:stun.l.google.com:19302",
-		ChannelName: "sync",
-		WatchDir:    "./",
-		Addr:        ":50000",
-		Ignore:      []string{".git"},
+		IceURL:   "stun:stun.l.google.com:19302",
+		WatchDir: "./",
+		Addr:     ":50000",
+		Ignore:   []string{".git"},
 	}
 }
