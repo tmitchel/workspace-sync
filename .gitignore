@@ -2,3 +2,6 @@ local-workspace-sync
 remote-workspace-sync
 test
 folder
+config.json
+linux-workspace-sync
+macos-workspace-sync
